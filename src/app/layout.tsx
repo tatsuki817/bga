@@ -22,6 +22,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Link>
             <nav className="flex gap-4 text-sm text-muted">
               <Link href="/types" className="hover:text-foreground">16タイプ</Link>
+              <Link href="/basis" className="hover:text-foreground">根拠</Link>
               <Link href="/quiz" className="hover:text-foreground">診断する</Link>
             </nav>
           </div>
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="border-t border-border">
           <div className="mx-auto max-w-3xl px-4 py-6 text-xs text-muted">
             BGA は独自に設計した行動スタイル診断です。特定の商用アセスメントとは関係ありません。
+            <Link href="/basis" className="ml-2 underline underline-offset-4">モデルの根拠と限界</Link>
           </div>
         </footer>
       </body>

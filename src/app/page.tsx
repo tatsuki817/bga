@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { QUESTIONS, STYLE_LIST } from "@/lib/bga";
+import { AXES, QUESTIONS, STYLE_LIST } from "@/lib/bga";
 import { StyleBadge } from "@/components/StyleBadge";
 
 export default function Home() {
@@ -46,9 +46,24 @@ export default function Home() {
                 <span className="text-muted">動機：</span>
                 {s.motive}
               </p>
+              <p className="text-xs text-muted">
+                {AXES.agency.name} {s.agency > 0 ? "高" : "低"} / {AXES.communion.name} {s.communion > 0 ? "高" : "低"}
+              </p>
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-bold">根拠のある設計を目指しています</h2>
+        <p className="text-sm leading-relaxed text-muted">
+          4 スタイルは対人円環モデルの「{AXES.agency.name}」「{AXES.communion.name}」の 2 軸に、
+          プレッシャー時の反応はストレス対処研究の分類に対応づけています。
+          一方で、BGA という組み合わせ自体の妥当性はまだ検証中です。同意いただいた方の匿名データで検証を進め、結果は公開します。
+          <Link href="/basis" className="ml-1 underline underline-offset-4">
+            モデルの根拠と限界
+          </Link>
+        </p>
       </section>
 
       <section className="space-y-3">

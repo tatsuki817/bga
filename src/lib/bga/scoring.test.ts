@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MIXED_GAP,
   computeResult,
   decodeResult,
   encodeResult,
@@ -9,6 +10,7 @@ import {
   type Answers,
   type Ranking,
 } from "./scoring";
+import { TIPI_ITEMS, isTipiComplete, scoreTipi } from "./tipi";
 import { QUESTIONS, QUESTIONS_BY_PHASE } from "./questions";
 import { STYLE_IDS, type StyleId } from "./styles";
 import { TYPES, TYPE_LIST } from "./types";
@@ -29,6 +31,12 @@ describe("question data", () => {
   it("does not always put the same style first", () => {
     const firsts = new Set(QUESTIONS.map((q) => q.statements[0].style));
     expect(firsts.size).toBe(4);
+  });
+  it("spreads each style across all four positions", () => {
+    for (let pos = 0; pos < 4; pos++) {
+      const styles = new Set(QUESTIONS.map((q) => q.statements[pos].style));
+      expect(styles.size).toBe(4);
+    }
   });
 });
 
@@ -75,6 +83,29 @@ describe("scoring", () => {
     expect(r.type.code).toBe("DD");
   });
 
+  it("marks a clear result when the gap is large", () => {
+    const r = computeResult(answerAll(["S", "D", "A", "H"], ["D", "S", "A", "H"]));
+    expect(r.dominance.normal.isClear).toBe(true);
+    expect(r.dominance.pressure.isClear).toBe(true);
+    expect(r.alternatives).toEqual([]);
+  });
+
+  it("offers alternative types when the top two are within MIXED_GAP", () => {
+    // 通常時: S と D が同点 → 僅差。プレッシャー時は明確に A。
+    const a: Answers = {};
+    QUESTIONS_BY_PHASE.normal.forEach((q, i) => {
+      a[q.id] = i % 2 === 0 ? ["S", "D", "A", "H"] : ["D", "S", "A", "H"];
+    });
+    for (const q of QUESTIONS_BY_PHASE.pressure) a[q.id] = ["A", "H", "S", "D"];
+    const r = computeResult(a);
+    expect(r.dominance.normal.gap).toBeLessThanOrEqual(MIXED_GAP);
+    expect(r.dominance.normal.isClear).toBe(false);
+    expect(r.dominance.pressure.isClear).toBe(true);
+    // 同点は S/D のうちプレッシャー時に高い方が top（ここでは S）
+    expect(r.type.code).toBe("SA");
+    expect(r.alternatives.map((t) => t.code)).toEqual(["DA"]);
+  });
+
   it("isComplete requires every question", () => {
     const a = answerAll(["S", "D", "A", "H"], ["S", "D", "A", "H"]);
     expect(isComplete(a)).toBe(true);
@@ -103,10 +134,31 @@ describe("url encoding", () => {
   it("rejects malformed or impossible input", () => {
     expect(decodeResult(null)).toBeNull();
     expect(decodeResult("garbage")).toBeNull();
-    expect(decodeResult("v9.40.30.20.10-40.30.20.10")).toBeNull();
+    expect(decodeResult("v9.48.36.24.12-48.36.24.12")).toBeNull();
+    // 旧バージョン (10 問時代) は拒否
+    expect(decodeResult("v1.40.30.20.10-40.30.20.10")).toBeNull();
     // 合計が合わない
-    expect(decodeResult("v1.40.40.40.40-40.30.20.10")).toBeNull();
+    expect(decodeResult("v2.48.48.48.48-48.36.24.12")).toBeNull();
     // 範囲外
-    expect(decodeResult("v1.99.1.0.0-40.30.20.10")).toBeNull();
+    expect(decodeResult("v2.99.1.0.0-48.36.24.12")).toBeNull();
+  });
+});
+
+describe("TIPI-J", () => {
+  it("has 10 items, two per factor, one reversed each", () => {
+    expect(TIPI_ITEMS).toHaveLength(10);
+    for (const f of ["E", "A", "C", "N", "O"] as const) {
+      const items = TIPI_ITEMS.filter((it) => it.factor === f);
+      expect(items).toHaveLength(2);
+      expect(items.filter((it) => it.reversed)).toHaveLength(1);
+    }
+  });
+  it("scores with reversal (8 - x)", () => {
+    const all7 = Object.fromEntries(TIPI_ITEMS.map((it) => [it.no, 7]));
+    expect(isTipiComplete(all7)).toBe(true);
+    const s = scoreTipi(all7);
+    // 正項目 7 + 逆転項目 (8-7)=1 → 8
+    expect(s).toEqual({ E: 8, A: 8, C: 8, N: 8, O: 8 });
+    expect(isTipiComplete({ 1: 7 })).toBe(false);
   });
 });
