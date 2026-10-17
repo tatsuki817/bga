@@ -45,6 +45,15 @@ Supabase に匿名の回答ログを保存できる。未設定でも診断は�
 保存されるのは回答の並び順・スコア・タイプ・所要時間のみ。IP / UA / Cookie は保存しない。
 API は `src/app/api/responses/route.ts`（診断回答）と `src/app/api/tipi/route.ts`（TIPI-J）。
 
+## OGP 画像
+
+- トップ: `src/app/opengraph-image.tsx`
+- タイプ解説: `src/app/types/[code]/opengraph-image.tsx`（16 種）
+- 診断結果: `/og?r=<結果コード>`（`src/app/og/route.tsx`。スコアのバー付き）
+- テンプレートは `src/lib/og/OgCard.tsx`。`next/og`（Satori）の制約で、複数の子を持つ要素は `display:flex` 必須、Fragment 不可
+- フォントは Noto Sans JP（OFL 1.1）をサブセット化して `src/assets/fonts/` に同梱。
+  設問やタイプ名の文言を変えたら `python3 scripts/subset-fonts.py <NotoSansJP-VF.ttf>` で作り直す
+
 ## 構成
 
 ```
@@ -68,7 +77,12 @@ src/
     result/             結果（?r=v2.S.D.A.H-S.D.A.H）
     types/, types/[code]/  16 タイプ一覧と解説（静的生成）
     basis/              モデルの根拠と限界
+    og/                 結果用 OGP 画像
+    opengraph-image.tsx, types/[code]/opengraph-image.tsx  OGP 画像
     api/responses, api/tipi  回答保存 API
+  lib/og/               OGP テンプレートとフォント読み込み
+  assets/fonts/         サブセット済み Noto Sans JP と OFL
+scripts/subset-fonts.py  フォントのサブセット生成
 supabase/schema.sql   回答ログのテーブル定義
 ```
 
@@ -80,5 +94,5 @@ supabase/schema.sql   回答ログのテーブル定義
 1. MVP: 診断・結果・URL 共有・タイプ解説（完了）
 2. 根拠づけ: 2 軸モデル、僅差表示、回答ログと TIPI-J による検証（実装済み、データ収集中）
 3. 集めたデータで項目分析・併存的妥当性・再検査信頼性を算出し `/basis` で公開
-4. 結果タイプ別 OGP 画像、相性表示
+4. 結果タイプ別 OGP 画像（完了）、相性表示
 5. 有料の詳細レポート、チーム診断

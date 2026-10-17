@@ -2,13 +2,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://bga-ten.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "BGA 行動指針診断",
     template: "%s | BGA 行動指針診断",
   },
   description:
     "BGA（Behavioral Guidelines Assessment）は、普段のあなたとプレッシャー下のあなたを比べて、16タイプの行動指針を示す無料診断です。",
+  openGraph: {
+    type: "website",
+    siteName: "BGA 行動指針診断",
+    locale: "ja_JP",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
