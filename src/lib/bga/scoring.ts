@@ -21,10 +21,24 @@ export interface PhaseProfile {
   min: number;
 }
 
+/** ある場面での優位スタイルの「はっきりさ」 */
+export interface Dominance {
+  top: StyleId;
+  second: StyleId;
+  /** 1位と2位の点差 */
+  gap: number;
+  /** 点差が MIXED_GAP を超えていれば true */
+  isClear: boolean;
+}
+
 export interface Result {
   normal: PhaseProfile;
   pressure: PhaseProfile;
   type: TypeDef;
+  /** 各場面の優位スタイルのはっきりさ */
+  dominance: { normal: Dominance; pressure: Dominance };
+  /** 1位と2位が僅差のとき、第2候補になりうるタイプ（最大3つ、重複なし） */
+  alternatives: TypeDef[];
   /** 優位スタイルがプレッシャー時に入れ替わるか */
   shifts: boolean;
   /** 2つのプロフィールの差の大きさ（0=同じ, 1=完全に逆） */
@@ -34,7 +48,14 @@ export interface Result {
 /** 1位=4点, 2位=3点, 3位=2点, 4位=1点 */
 export const RANK_POINTS = [4, 3, 2, 1] as const;
 
-export const SCORE_VERSION = 1;
+/**
+ * 1位と2位の点差がこの値以下なら「僅差」とみなし、タイプを断定しない。
+ * 12問なら各スタイル 12〜48 点なので、3 点は幅の約 8%。
+ */
+export const MIXED_GAP = 3;
+
+/** URL 形式のバージョン。設問数や配点を変えたら上げる */
+export const SCORE_VERSION = 2;
 
 export function emptyScores(): Scores {
   return { S: 0, D: 0, A: 0, H: 0 };
@@ -88,16 +109,35 @@ export function computeResult(answers: Answers): Result {
   return resultFromProfiles(normal, pressure);
 }
 
+export function dominanceOf(profile: PhaseProfile, tieBreak: PhaseProfile): Dominance {
+  const order = rankStyles(profile.scores, tieBreak.scores);
+  const top = order[0];
+  const second = order[1];
+  const gap = profile.scores[top] - profile.scores[second];
+  return { top, second, gap, isClear: gap > MIXED_GAP };
+}
+
 export function resultFromProfiles(normal: PhaseProfile, pressure: PhaseProfile): Result {
   // 同点のときはもう一方のプロフィールで決める
-  const nTop = rankStyles(normal.scores, pressure.scores)[0];
-  const pTop = rankStyles(pressure.scores, normal.scores)[0];
-  const code = `${nTop}${pTop}` as TypeCode;
+  const dn = dominanceOf(normal, pressure);
+  const dp = dominanceOf(pressure, normal);
+  const code = `${dn.top}${dp.top}` as TypeCode;
+
+  const alternatives: TypeDef[] = [];
+  const push = (c: TypeCode) => {
+    if (c !== code && !alternatives.some((t) => t.code === c)) alternatives.push(TYPES[c]);
+  };
+  if (!dn.isClear) push(`${dn.second}${dp.top}`);
+  if (!dp.isClear) push(`${dn.top}${dp.second}`);
+  if (!dn.isClear && !dp.isClear) push(`${dn.second}${dp.second}`);
+
   return {
     normal,
     pressure,
     type: TYPES[code],
-    shifts: nTop !== pTop,
+    dominance: { normal: dn, pressure: dp },
+    alternatives,
+    shifts: dn.top !== dp.top,
     shiftIndex: shiftIndex(normal.order, pressure.order),
   };
 }

@@ -1,5 +1,16 @@
 import type { StyleId } from "./styles";
 
+/**
+ * 設問の設計方針
+ * - normal (通常時): 対人円環の2軸「主導性」「親和性」に沿った対人行動の好み。
+ *   4文は S (親和+ / 主導-), D (主導+ / 親和-), A (主導- / 親和-), H (主導+ / 親和+)
+ *   の象限を一つずつ表す。
+ * - pressure (プレッシャー時): ストレス対処の代表パターン。
+ *   D = 能動的対処, A = 計画・抑制, S = 順応・自己抑制, H = 支援の希求・切り替え。
+ * - 各設問で4スタイルの文は必ず1つずつ。表示順は固定だが、同じスタイルが
+ *   いつも同じ位置に来ないようばらしてある (位置効果の抑制)。
+ */
+
 export type Phase = "normal" | "pressure";
 
 export interface Statement {
@@ -28,7 +39,7 @@ export const PHASE_META: Record<
   pressure: {
     title: "パート2：プレッシャー下のあなた",
     lead: "締め切りが迫っている、うまくいっていない、追い詰められているときの自分を思い浮かべてください。",
-    instruction: "理想ではなく「実際にそうなりがちな順」に並べてください。",
+    instruction: "「こうありたい」ではなく、「実際にそうなりがちな順」に並べてください。",
   },
 };
 
@@ -144,6 +155,28 @@ export const QUESTIONS: Question[] = [
       { style: "S", text: "面倒見がいい、親身" },
     ],
   },
+  {
+    id: "n11",
+    phase: "normal",
+    prompt: "初対面の人が多い集まりで",
+    statements: [
+      { style: "H", text: "自分から話しかけて、場を盛り上げる" },
+      { style: "A", text: "様子を見ながら、必要なときだけ話す" },
+      { style: "D", text: "目的のある相手を見つけて、話を進める" },
+      { style: "S", text: "一人でいる人のそばに行って、話を聞く" },
+    ],
+  },
+  {
+    id: "n12",
+    phase: "normal",
+    prompt: "誰かに意見を求められたとき",
+    statements: [
+      { style: "A", text: "判断材料を並べて、選択肢を示す" },
+      { style: "S", text: "相手がどうしたいかを先に聞く" },
+      { style: "H", text: "相手の気持ちが前向きになる言い方を選ぶ" },
+      { style: "D", text: "結論から言う。「こうすべき」と伝える" },
+    ],
+  },
   // ---------------- pressure ----------------
   {
     id: "p01",
@@ -253,6 +286,28 @@ export const QUESTIONS: Question[] = [
       { style: "S", text: "周りの人が緊張していないか気にかける" },
       { style: "H", text: "誰かと雑談して気を紛らわす" },
       { style: "A", text: "想定問答や準備を何度も確認する" },
+    ],
+  },
+  {
+    id: "p11",
+    phase: "pressure",
+    prompt: "大事な判断を急がされたとき",
+    statements: [
+      { style: "S", text: "関係者が納得できるかを先に考える" },
+      { style: "D", text: "その場で決めて、責任は自分が持つ" },
+      { style: "H", text: "詳しい人をつかまえて、意見を聞く" },
+      { style: "A", text: "決める前に、最低限の確認だけは譲らない" },
+    ],
+  },
+  {
+    id: "p12",
+    phase: "pressure",
+    prompt: "自分のミスが発覚したとき",
+    statements: [
+      { style: "D", text: "まず挽回策を打ち、説明は後にする" },
+      { style: "H", text: "深刻になりすぎないよう、空気を和らげながら伝える" },
+      { style: "A", text: "事実関係を整理してから、正確に報告する" },
+      { style: "S", text: "すぐに謝り、相手の負担を減らすことを優先する" },
     ],
   },
 ];

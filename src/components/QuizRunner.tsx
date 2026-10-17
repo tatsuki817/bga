@@ -16,8 +16,53 @@ import {
   type StyleId,
 } from "@/lib/bga";
 
-const STORAGE_KEY = "bga:answers:v1";
+const STORAGE_KEY = "bga:answers:v2";
+const CONSENT_KEY = "bga:consent:v1";
+const STARTED_KEY = "bga:startedAt:v1";
 const PHASES: Phase[] = ["normal", "pressure"];
+
+export function responseStorageKey(code: string) {
+  return `bga:response:${code}`;
+}
+
+function loadConsent(): boolean | null {
+  try {
+    const v = localStorage.getItem(CONSENT_KEY);
+    return v === "1" ? true : v === "0" ? false : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadStartedAt(): number | null {
+  try {
+    const v = Number(localStorage.getItem(STARTED_KEY));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 回答を匿名で保存する。失敗しても診断は止めない。最大 4 秒で諦める */
+async function submitResponse(answers: Answers, startedAt: number | null): Promise<string | null> {
+  const ctrl = new AbortController();
+  const timer = window.setTimeout(() => ctrl.abort(), 4000);
+  try {
+    const res = await fetch("/api/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers, startedAt, consent: true }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { id?: string | null };
+    return data.id ?? null;
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
 
 type Screen = { kind: "intro"; phase: Phase } | { kind: "question"; index: number };
 
@@ -55,6 +100,8 @@ export function QuizRunner() {
   const [answers, setAnswers] = useState<Answers>(loadAnswers);
   const [screen, setScreen] = useState<Screen>(() => initialScreen(loadAnswers()));
   const [picked, setPicked] = useState<StyleId[]>([]);
+  const [consent, setConsent] = useState<boolean | null>(loadConsent);
+  const [submitting, setSubmitting] = useState(false);
 
   // 途中保存
   useEffect(() => {
@@ -67,19 +114,36 @@ export function QuizRunner() {
 
   const question = screen.kind === "question" ? QUESTIONS[screen.index] : null;
 
+  const finish = useCallback(
+    async (nextAnswers: Answers) => {
+      const code = encodeResult(computeResult(nextAnswers));
+      setSubmitting(true);
+      if (consent) {
+        const id = await submitResponse(nextAnswers, loadStartedAt());
+        if (id) {
+          try {
+            sessionStorage.setItem(responseStorageKey(code), id);
+          } catch {
+            /* noop */
+          }
+        }
+      }
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(STARTED_KEY);
+      } catch {
+        /* noop */
+      }
+      router.push(`/result?r=${code}`);
+    },
+    [consent, router],
+  );
+
   const goNext = useCallback(
     (nextAnswers: Answers, fromIndex: number) => {
       const nextIndex = fromIndex + 1;
       if (nextIndex >= QUESTIONS.length) {
-        if (isComplete(nextAnswers)) {
-          const code = encodeResult(computeResult(nextAnswers));
-          try {
-            localStorage.removeItem(STORAGE_KEY);
-          } catch {
-            /* noop */
-          }
-          router.push(`/result?r=${code}`);
-        }
+        if (isComplete(nextAnswers)) void finish(nextAnswers);
         return;
       }
       const next = QUESTIONS[nextIndex];
@@ -87,8 +151,23 @@ export function QuizRunner() {
       setPicked([]);
       setScreen(next.phase !== cur.phase ? { kind: "intro", phase: next.phase } : { kind: "question", index: nextIndex });
     },
-    [router],
+    [finish],
   );
+
+  const start = (phase: Phase, agreed?: boolean) => {
+    if (phase === "normal") {
+      const c = agreed ?? consent ?? false;
+      setConsent(c);
+      try {
+        localStorage.setItem(CONSENT_KEY, c ? "1" : "0");
+        if (!loadStartedAt()) localStorage.setItem(STARTED_KEY, String(Date.now()));
+      } catch {
+        /* noop */
+      }
+    }
+    setPicked([]);
+    setScreen({ kind: "question", index: QUESTIONS.findIndex((q) => q.phase === phase) });
+  };
 
   const tap = (style: StyleId) => {
     if (!question) return;
@@ -118,6 +197,11 @@ export function QuizRunner() {
   const restart = () => {
     setAnswers({});
     setPicked([]);
+    try {
+      localStorage.removeItem(STARTED_KEY);
+    } catch {
+      /* noop */
+    }
     setScreen({ kind: "intro", phase: "normal" });
   };
 
@@ -126,9 +210,13 @@ export function QuizRunner() {
     return Math.round((done / QUESTIONS.length) * 100);
   }, [screen, answers]);
 
+  if (submitting) {
+    return <div className="py-20 text-center text-muted">結果を計算しています…</div>;
+  }
+
   if (screen.kind === "intro") {
     const meta = PHASE_META[screen.phase];
-    const startIndex = QUESTIONS.findIndex((q) => q.phase === screen.phase);
+    const isFirst = screen.phase === "normal";
     return (
       <div className="mx-auto max-w-xl space-y-6 py-10 text-center">
         <p className="text-sm text-muted">
@@ -137,15 +225,37 @@ export function QuizRunner() {
         <h1 className="text-2xl font-bold">{meta.title}</h1>
         <p className="text-muted leading-relaxed">{meta.lead}</p>
         <p className="rounded-2xl border border-border bg-card p-4 text-sm">{meta.instruction}</p>
-        <button
-          onClick={() => {
-            setPicked([]);
-            setScreen({ kind: "question", index: startIndex });
-          }}
-          className="rounded-full bg-accent px-8 py-3 font-semibold text-accent-foreground hover:opacity-90"
-        >
-          はじめる
-        </button>
+
+        {isFirst ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-border bg-card p-4 text-left text-sm leading-relaxed">
+              <p className="font-bold">回答データの扱い</p>
+              <p className="mt-1 text-muted">
+                同意いただいた場合、回答内容とスコアを匿名で保存し、設問の改善と診断の妥当性検証に使います。
+                氏名・メールアドレス・IPアドレスなど個人を特定する情報は収集しません。
+                同意しなくても診断は同じように受けられます。
+              </p>
+            </div>
+            <button
+              onClick={() => start("normal", true)}
+              className="rounded-full bg-accent px-8 py-3 font-semibold text-accent-foreground hover:opacity-90"
+            >
+              同意してはじめる
+            </button>
+            <div>
+              <button onClick={() => start("normal", false)} className="text-sm text-muted underline underline-offset-4 hover:text-foreground">
+                同意せずにはじめる
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => start("pressure")}
+            className="rounded-full bg-accent px-8 py-3 font-semibold text-accent-foreground hover:opacity-90"
+          >
+            はじめる
+          </button>
+        )}
       </div>
     );
   }
