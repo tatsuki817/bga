@@ -17,6 +17,10 @@
 参考理論と限界は `/basis` ページ（`src/app/basis/page.tsx`）にまとめてある。
 設問・タイプ名・解説文はすべてオリジナルで、特定の商用アセスメントとは無関係。
 
+## 公開 URL
+
+- 本番: https://bga-ten.vercel.app （Vercel、`main` への push で自動デプロイ。PR ごとにプレビュー URL も発行される）
+
 ## 開発
 
 ```bash
