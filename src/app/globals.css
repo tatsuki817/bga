@@ -8,6 +8,11 @@
   --border: #e6e3dc;
   --accent: #1c1c1a;
   --accent-foreground: #ffffff;
+  /* 4 スタイルの色をごく薄く散らす背景用 */
+  --tint-s: rgba(46, 158, 107, 0.16);
+  --tint-d: rgba(217, 83, 79, 0.14);
+  --tint-a: rgba(59, 111, 212, 0.14);
+  --tint-h: rgba(224, 165, 38, 0.16);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,6 +24,10 @@
     --border: #2d2c29;
     --accent: #f0efeb;
     --accent-foreground: #121211;
+    --tint-s: rgba(46, 158, 107, 0.12);
+    --tint-d: rgba(217, 83, 79, 0.1);
+    --tint-a: rgba(59, 111, 212, 0.12);
+    --tint-h: rgba(224, 165, 38, 0.1);
   }
 }
 
@@ -42,4 +51,20 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
+  position: relative;
+}
+
+/* 固定レイヤーに置くことで、モバイルでもスクロール時にちらつかない */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 45% at 5% 0%, var(--tint-s), transparent 70%),
+    radial-gradient(50% 40% at 100% 10%, var(--tint-d), transparent 70%),
+    radial-gradient(45% 40% at 10% 100%, var(--tint-a), transparent 70%),
+    radial-gradient(55% 45% at 95% 95%, var(--tint-h), transparent 70%),
+    var(--background);
 }
